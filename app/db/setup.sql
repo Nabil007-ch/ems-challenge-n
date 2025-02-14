@@ -18,7 +18,17 @@ DROP TABLE IF EXISTS timesheets;
 -- Create employees table
 CREATE TABLE employees (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    full_name TEXT NULL
+    full_name TEXT NULL,
+    email TEXT NOT NULL UNIQUE,
+    phone TEXT NOT NULL,
+    date_of_birth TEXT NOT NULL,  -- Store as 'YYYY-MM-DD'
+    job_title TEXT NOT NULL,
+    department TEXT NOT NULL,
+    salary REAL NOT NULL CHECK (salary > 0),
+    start_date TEXT NOT NULL, -- Store as 'YYYY-MM-DD'
+    end_date TEXT,  -- Nullable (for former employees)
+    photo TEXT,  -- Path to stored image file
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
     -- Rest of the fields
 );
 
@@ -29,5 +39,7 @@ CREATE TABLE timesheets (
     start_time DATETIME NOT NULL,
     end_time DATETIME NOT NULL,
     employee_id INTEGER NOT NULL,
-    FOREIGN KEY (employee_id) REFERENCES employees(id)
+      summary TEXT,  -- Work description
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
 );

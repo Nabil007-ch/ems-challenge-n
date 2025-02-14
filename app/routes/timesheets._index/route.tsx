@@ -1,7 +1,12 @@
+import { useState, useEffect } from "react";
 import { useLoaderData } from "react-router";
-import { useState } from "react";
+import { useCalendarApp, ScheduleXCalendar } from "@schedule-x/react";
+import { createViewMonthGrid, createViewWeek } from "@schedule-x/calendar";
+import { createEventsServicePlugin } from "@schedule-x/events-service";
+import "@schedule-x/theme-default/dist/index.css";
 import { getDB } from "~/db/getDB";
 
+// ✅ Loader function to fetch timesheets and employees
 export async function loader() {
   const db = await getDB();
   const timesheetsAndEmployees = await db.all(
@@ -11,43 +16,105 @@ export async function loader() {
   return { timesheetsAndEmployees };
 }
 
+// ✅ TimesheetsPage Component
 export default function TimesheetsPage() {
+  // Get data from loader
   const { timesheetsAndEmployees } = useLoaderData();
 
+  const [view, setView] = useState<"table" | "calendar">("table");
+
+  // Function to format the time as "YYYY-MM-DD HH:mm"
+  const formatToCustomDate = (time: string) => {
+    const date = new Date(time);
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(date.getUTCDate()).padStart(2, "0");
+    const hours = String(date.getUTCHours()).padStart(2, "0");
+    const minutes = String(date.getUTCMinutes()).padStart(2, "0");
+
+    return `${year}-${month}-${day} ${hours}:${minutes}`; // Format without 'T' or 'Z'
+  };
+
+  // ✅ Events Plugin for ScheduleX
+  const [eventsService] = useState(() => createEventsServicePlugin());
+
+  // ✅ Calendar Setup
+  const calendar = useCalendarApp({
+    views: [createViewWeek(), createViewMonthGrid()],
+    events: timesheetsAndEmployees.map((t: any) => ({
+      id: String(t.id),
+      title: `Timesheet for ${t.full_name}`,
+      start: t.start_time ? formatToCustomDate(t.start_time) : new Date().toISOString(),
+      end: t.end_time ? formatToCustomDate(t.end_time) : new Date().toISOString(),
+    })),
+    plugins: [eventsService],
+  });
+
+  useEffect(() => {
+    eventsService.getAll(); // Fetch events (optional)
+  }, [eventsService]);
+
   return (
-    <div>
-      <div>
-        <button>Table View</button>
-        <button>Calendar View</button>
+    <div className="container mx-auto p-4">
+      <h1 className="text-2xl font-bold mb-4">Timesheets</h1>
+
+      {/* Toggle Buttons */}
+      <div className="mb-4 flex gap-2">
+        <button
+          className={`px-4 py-2 rounded ${view === "table" ? "bg-blue-500 text-white" : "bg-gray-200"}`}
+          onClick={() => setView("table")}
+        >
+          Table View
+        </button>
+        <button
+          className={`px-4 py-2 rounded ${view === "calendar" ? "bg-blue-500 text-white" : "bg-gray-200"}`}
+          onClick={() => setView("calendar")}
+        >
+          Calendar View
+        </button>
       </div>
-      {/* Replace `true` by a variable that is changed when the view buttons are clicked */}
-      {true ? (
+
+      {/* Render Table or Calendar */}
+      {view === "table" ? (
         <div>
-          {timesheetsAndEmployees.map((timesheet: any) => (
-            <div key={timesheet.id}>
-              <ul>
-                <li>Timesheet #{timesheet.id}</li>
-                <ul>
-                  <li>Employee: {timesheet.full_name} (ID: {timesheet.employee_id})</li>
-                  <li>Start Time: {timesheet.start_time}</li>
-                  <li>End Time: {timesheet.end_time}</li>
-                </ul>
-              </ul>
-            </div>
-          ))}
+          <table className="w-full border-collapse border border-gray-300 mt-4">
+            <thead>
+              <tr className="bg-gray-100">
+                <th className="border px-4 py-2">Timesheet ID</th>
+                <th className="border px-4 py-2">Employee</th>
+                <th className="border px-4 py-2">Start Time</th>
+                <th className="border px-4 py-2">End Time</th>
+                <th className="border px-4 py-2">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {timesheetsAndEmployees.map((timesheet: any) => (
+                <tr key={timesheet.id}>
+                  <td className="border px-4 py-2">#{timesheet.id}</td>
+                  <td className="border px-4 py-2">
+                    {timesheet.full_name} (ID: {timesheet.employee_id})
+                  </td>
+                  <td className="border px-4 py-2">{formatToCustomDate(timesheet.start_time)}</td>
+                  <td className="border px-4 py-2">{formatToCustomDate(timesheet.end_time)}</td>
+                  <td className="border px-4 py-2">
+                    <a href={`/timesheets/${timesheet.id}`} className="text-blue-500">Edit</a>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       ) : (
-        <div>
-          <p>
-            To implement, see <a href="https://schedule-x.dev/docs/frameworks/react">Schedule X React documentation</a>.
-          </p>
-        </div>
+        // ✅ Use Calendar App Here
+        <ScheduleXCalendar calendarApp={calendar} />
       )}
-      <hr />
-      <ul>
-        <li><a href="/timesheets/new">New Timesheet</a></li>
-        <li><a href="/employees">Employees</a></li>
-      </ul>
+
+      {/* Navigation Links */}
+      <hr className="my-4" />
+      <div className="flex gap-4">
+        <a href="/timesheets/new" className="bg-green-500 text-white px-4 py-2 rounded">+ New Timesheet</a>
+        <a href="/employees" className="bg-gray-500 text-white px-4 py-2 rounded">View Employees</a>
+      </div>
     </div>
   );
 }
